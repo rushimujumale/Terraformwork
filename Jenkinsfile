@@ -16,7 +16,8 @@ pipeline {
                     def githubRepoUrl = 'https://github.com/rushimujumale/Terraformwork.git'
                     
                     // Use 'git ls-tree' to list .tfvars files in the 'main' branch
-                    def tfvarsFiles = sh(script: "git ls-tree --name-only -r $branchOrTag | grep -E '^.+\\.tfvars\\$'", returnStatus: true, returnStdout: true).trim().split('\n')
+                   def tfvarsFiles = sh(script: "git ls-files | grep -E '^.+\\.tfvars$'", returnStatus: true, returnStdout: true).trim().split('\n')
+
 
 
                     if (tfvarsFiles.isEmpty()) {
