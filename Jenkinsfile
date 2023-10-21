@@ -9,27 +9,33 @@ pipeline {
                 git branch: 'main', credentialsId: 'd184034c-1779-42a9-9550-37882d4551c4', url: 'https://github.com/rushimujumale/Terraformwork.git'
             }
         }
-        stage('Ask for Environment') {
+        stage('List .tfvars Files') {
             steps {
                 script {
+                    // Define the GitHub repository URL
                     def githubRepoUrl = 'https://github.com/rushimujumale/Terraformwork.git'
-                    def filesList = sh(script: "curl -s -H 'Accept: application/vnd.github.v3.raw' ${githubRepoUrl}/environments/dev", returnStatus: true, returnStdout: true).trim()
+
+                    // Use the GitHub API to fetch the list of files
+                    def filesList = sh(script: "curl -s -H 'Accept: application/vnd.github.v3.raw' ${githubRepoUrl}/contents", returnStatus: true, returnStdout: true).trim()
                     def fileList = filesList.tokenize("\n")
                     def tfvarsFiles = []
 
+                    // Extract .tfvars files from the list
                     for (file in fileList) {
                         if (file.endsWith('.tfvars')) {
                             tfvarsFiles.add(file)
                         }
                     }
 
+                    // Prompt the user to choose a .tfvars file
                     def tfvarsChoice = input(
                         id: 'tfvarsChoice',
                         message: 'Choose a .tfvars file:',
                         parameters: tfvarsFiles.collect { choice(name: it, description: it) }
                     )
 
-                    env.TFVARS_FILE = "environments/dev/${tfvarsChoice}"
+                    // Set the chosen .tfvars file as an environment variable
+                    env.TFVARS_FILE = tfvarsChoice
                 }
             }
         }
