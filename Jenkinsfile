@@ -12,19 +12,14 @@ pipeline {
         stage('List .tfvars Files') {
             steps {
                 script {
-                    // Define the GitHub repository URL
+                    def branchOrTag = 'main' // Use 'main' branch
                     def githubRepoUrl = 'https://github.com/rushimujumale/Terraformwork.git'
+                    
+                    // Use 'git ls-tree' to list .tfvars files in the 'main' branch
+                    def tfvarsFiles = sh(script: "git ls-tree --name-only -r $branchOrTag | grep -E '^.+\\.tfvars$'", returnStatus: true, returnStdout: true).trim().split('\n')
 
-                    // Use the GitHub API to fetch the list of files
-                    def filesList = sh(script: "curl -s -u rushimujumale:Mujumale@297 -H 'Accept: application/vnd.github.v3.raw' ${githubRepoUrl}/", returnStatus: true, returnStdout: true).trim()
-                    def fileList = filesList.tokenize("\n")
-                    def tfvarsFiles = []
-
-                    // Extract .tfvars files from the list
-                    for (file in fileList) {
-                        if (file.endsWith('.tfvars')) {
-                            tfvarsFiles.add(file)
-                        }
+                    if (tfvarsFiles.isEmpty()) {
+                        error("No .tfvars files found in the repository.")
                     }
 
                     // Prompt the user to choose a .tfvars file
@@ -64,15 +59,4 @@ pipeline {
         }
         stage('Terraform Plan and Apply') {
             steps {
-                sh "terraform apply -var-file=environment/${env.ENVIRONMENT}/terraform.tfvars -var 'is_private=${env.HOSTED_ZONE_TYPE}' -auto-approve"
-            }
-        }
-        stage('Terraform Destroy') {
-            steps {
-                input(id: 'destroy', message: 'Destroy the resources?', ok: 'Destroy')
-                sh "terraform destroy -var-file=environment/${env.ENVIRONMENT}/terraform.tfvars -var 'is_private=${env.HOSTED_ZONE_TYPE}' -auto-approve"
-            }
-        }
-    }
-}
-
+                sh "terraform apply -var-file=environment/${env.ENVIRONMENT}/terraform
