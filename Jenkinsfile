@@ -16,7 +16,7 @@ pipeline {
                     def githubRepoUrl = 'https://github.com/rushimujumale/Terraformwork.git'
 
                     // Use the GitHub API to fetch the list of files
-                    def filesList = sh(script: "curl -s -H 'Accept: application/vnd.github.v3.raw' ${githubRepoUrl}/contents", returnStatus: true, returnStdout: true).trim()
+                    def filesList = sh(script: "curl -s -H 'Accept: application/vnd.github.v3.raw' ${githubRepoUrl}/", returnStatus: true, returnStdout: true).trim()
                     def fileList = filesList.tokenize("\n")
                     def tfvarsFiles = []
 
