@@ -6,8 +6,8 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // Checkout your source code repository
-                // For example, use `checkout scm` for Git
+                // Checkout your source code repository from GitHub
+                git branch: 'main', credentialsId: 'd184034c-1779-42a9-9550-37882d4551c4', url: 'https://github.com/rushimujumale/Terraformwork.git'
             }
         }
         stage('Ask for Environment') {
@@ -66,3 +66,4 @@ pipeline {
         }
     }
 }
+
