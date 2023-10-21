@@ -6,25 +6,30 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // Checkout your source code repository from GitHub
                 git branch: 'main', credentialsId: 'd184034c-1779-42a9-9550-37882d4551c4', url: 'https://github.com/rushimujumale/Terraformwork.git'
             }
         }
         stage('Ask for Environment') {
             steps {
                 script {
-                    def envChoice = input(
-                        id: 'envChoice',
-                        message: 'Choose the environment:',
-                        parameters: [
-                            choice(name: 'dev', description: 'Development Environment'),
-                            choice(name: 'staging', description: 'Staging Environment'),
-                            choice(name: 'prod', description: 'Production Environment')
-                        ]
+                    def githubRepoUrl = 'https://github.com/rushimujumale/Terraformwork.git'
+                    def filesList = sh(script: "curl -s -H 'Accept: application/vnd.github.v3.raw' ${githubRepoUrl}/contents/environments/dev", returnStatus: true, returnStdout: true).trim()
+                    def fileList = filesList.tokenize("\n")
+                    def tfvarsFiles = []
+
+                    for (file in fileList) {
+                        if (file.endsWith('.tfvars')) {
+                            tfvarsFiles.add(file)
+                        }
+                    }
+
+                    def tfvarsChoice = input(
+                        id: 'tfvarsChoice',
+                        message: 'Choose a .tfvars file:',
+                        parameters: tfvarsFiles.collect { choice(name: it, description: it) }
                     )
 
-                    // Set the environment based on the user's choice
-                    env.ENVIRONMENT = envChoice
+                    env.TFVARS_FILE = "environments/dev/${tfvarsChoice}"
                 }
             }
         }
@@ -40,10 +45,8 @@ pipeline {
                         ]
                     )
 
-                    // Set a variable based on the user's choice
                     def hostedZoneType = zoneChoice == 'public' ? false : true
 
-                    // Pass the choice to Terraform as an environment variable
                     env.HOSTED_ZONE_TYPE = hostedZoneType.toString()
                 }
             }
