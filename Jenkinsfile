@@ -13,7 +13,7 @@ pipeline {
             steps {
                 script {
                     def githubRepoUrl = 'https://github.com/rushimujumale/Terraformwork.git'
-                    def filesList = sh(script: "curl -s -H 'Accept: application/vnd.github.v3.raw' ${githubRepoUrl}/contents/environments/dev", returnStatus: true, returnStdout: true).trim()
+                    def filesList = sh(script: "curl -s -H 'Accept: application/vnd.github.v3.raw' ${githubRepoUrl}/environments/dev", returnStatus: true, returnStdout: true).trim()
                     def fileList = filesList.tokenize("\n")
                     def tfvarsFiles = []
 
