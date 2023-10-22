@@ -1,108 +1,167 @@
-pipeline {
-    agent any
-    environment {
-        TF_CLI_ARGS = "-no-color"
-    }
-    stages {
-        stage('Checkout') {
-            steps {
-                git branch: 'main', credentialsId: 'd184034c-1779-42a9-9550-37882d4551c4', url: 'https://github.com/rushimujumale/Terraformwork.git'
-            }
-        }
+properties([
+    parameters([
+        [$class: 'ChoiceParameter', 
+            choiceType: 'PT_SINGLE_SELECT', 
+            description: 'Select the Modules Name from the Dropdown List', 
+            filterLength: 1, 
+            filterable: true, 
+            name: 'modules', 
+            randomName: 'choice-parameter-5631314439613978', 
+            script: [
+                $class: 'GroovyScript', 
+                fallbackScript: [
+                    classpath: [], 
+                    sandbox: false, 
+                    script: 
+                        'return[\'Could not get Modules\']'
+                ], 
+                script: [
+                    classpath: [], 
+                    sandbox: false, 
+                    script: 
+                        'return["private_hosted_zone","public_hosted_zone"]'
+                ]
+            ]
+        ], 
+        [$class: 'DynamicReferenceParameter', 
+            choiceType: 'ET_FORMATTED_HTML', 
+            description: 'These are the details in HTML format', 
+            name: 'parameter', 
+            omitValueField: false, 
+            randomName: 'choice-parameter-5633384460832175', 
+            referencedParameters: 'modules', 
+            script: [
+                $class: 'GroovyScript', 
+                fallbackScript: [
+                    classpath: [], 
+                    sandbox: false, 
+                    script: 
+                        'return[\'Could not get Parameter from modules Param\']'
+                ], 
+                script: [
+                    classpath: [], 
+                    sandbox: false, 
+                    script: 
+                        ''' service_tier_map = [
+                              "private_hosted_zone": [
+                                ["variable_name": "domain_name", "value": "" ],
+                                ["variable_name": "vpc_id", "value": ""],
+                        
+                              ],
+                              "public_hosted_zone": [
+                                ["variable_name": "domain_name", "value": "" ]                       
+                           ]
+                          html_to_be_rendered = "<table><tr>"
+                          service_list = service_tier_map[modules]
+                          service_list.each { service ->
+                            html_to_be_rendered = """
+                              ${html_to_be_rendered}
+                              <tr>
+                              <td>
+                              <input name=\"value\" alt=\"${service.variable_name}\" json=\"${service.variable_name}\" type=\"checkbox\" class=\" \">
+                              <label title=\"${service.variable_name}\" class=\" \">${service.variable_name}</label>
+                              </td>
+                              <td>
+                              <input type=\"text\" class=\" \" name=\"value\" value=\"${service.value}\"> </br>
+                              </td>
+                              </tr>
+                          """
+                          }
+                          html_to_be_rendered = "${html_to_be_rendered}</tr></table>"
+                          return html_to_be_rendered
+                        '''
+                ]
+            ]
+        ]
+    ])
+])
 
-        stage('Select Environment Folder') {
+pipeline {  
+  agent any
+  stages {
+      stage('Setup') {
             steps {
                 script {
-                    // Prompt user to select environment folder
-                    def selectedFolder = input(
-                        message: "Select the environment folder for configuration",
-                        parameters: [choice(
-                            name: 'ENV_FOLDER',
-                            choices: 'dev\nprod\nstaging', // Add your environment choices here
-                            description: 'Select the environment folder for configuration'
-                        )]
-                    )
+                    echo "${params.modules}"
+                    echo "${params.parameter}"
+                    def input = params.parameter.split(',')
+                    def output = ''
+                    def currentVariable = null
+                    def isParsingArray = false
+                    def arrayValue = []
 
-                    // Set the selected environment folder as an environment variable
-                    env.ENV_FOLDER = selectedFolder
-                }
-            }
-        }
-
-        stage('List tfvars') {
-            steps {
-                script {
-                    // Find .tfvars files in the selected environment folder
-                    def files = sh(returnStdout: true, script: "ls $WORKSPACE/environments/${env.ENV_FOLDER}/*.tfvars")
-
-                    // Extract only the filename without the path and add it to the choiceArray
-                    choiceArray = files.tokenize().collect {
-                        it.tokenize('/').last()
+                    input.each { item ->
+                        if (isParsingArray) {
+                            arrayValue.add(item.trim())
+                            if (item.endsWith("]")) {
+                                isParsingArray = false
+                                output += "${currentVariable} = [${arrayValue.join(', ')}]\n"
+                                currentVariable = null
+                                arrayValue.clear()
+                            }
+                        } else {
+                            if (item.startsWith("[")) {
+                                currentVariable = item.trim()
+                                isParsingArray = true
+                                arrayValue.add(currentVariable)
+                                if (item.endsWith("]")) {
+                                    isParsingArray = false
+                                    output += "${currentVariable} = [${arrayValue.join(', ')}]\n"
+                                    currentVariable = null
+                                    arrayValue.clear()
+                                }
+                            } else {
+                                currentVariable = item.trim()
+                                output += "${currentVariable} = \"${item.trim()}\"\n"
+                                currentVariable = null
+                            }
+                        }
                     }
+
+                    writeFile file: 'dev.tfvars', text: output
+
                 }
             }
         }
 
-        stage('Select tfvars') {
+        stage('Checkout Code') {
             steps {
-                script {
-                    // Prompt user to select .tfvars file
-                    def selectedTfvars = input(
-                        message: "Select the .tfvars file for the VPC configuration",
-                        parameters: [choice(
-                            name: 'TERRAFORM_VARS',
-                            choices: choiceArray,
-                            description: 'Select the .tfvars file for the VPC configuration'
-                        )]
-                    )
-
-                    // Check if the user made a selection
-                    if (!selectedTfvars || selectedTfvars.isEmpty()) {
-                        error "Please select the .tfvars file for the VPC configuration."
-                    }
-
-                    // Set the selected .tfvars file as an environment variable
-                    env.TERRAFORM_VARS = selectedTfvars
-                }
+                // change branch name to master before merging
+                git branch: 'main', credentialsId: "d184034c-1779-42a9-9550-37882d4551c4", url: 'https://github.com/rushimujumale/Terraformwork.git'
             }
         }
-
-        stage('Ask for Public or Private') {
-            steps {
-                script {
-                    def zoneChoice = input(
-                        id: 'zoneChoice',
-                        message: 'Choose the hosted zone type:',
-                        parameters: [
-                            choice(name: 'public', description: 'Public Hosted Zone'),
-                            choice(name: 'private', description: 'Private Hosted Zone')
-                        ]
-                    )
-
-                    def hostedZoneType = zoneChoice == 'public' ? false : true
-
-                    env.HOSTED_ZONE_TYPE = hostedZoneType.toString()
-                }
-            }
-        }
-
         stage('Terraform Init') {
             steps {
+                withCredentials(awsCredentials) {
+                sh 'terraform fmt'
                 sh 'terraform init'
+                }
+            }
+        }
+        stage('Terraform Plan') {
+            environment {
+                TF_VAR_public_key = "${params.public_key}"
+                }
+            steps {
+               withCredentials(awsCredentials) {
+                   sh "terraform plan -target=module.\"${params.modules}\" -var-file=\"UC.tfvars\" -out=terraform.plan"
+                }
             }
         }
 
-        stage('Terraform Plan and Apply') {
+        stage('Terraform Apply') {
             steps {
-                sh "terraform apply -var-file=environment/${env.ENV_FOLDER}/${env.TERRAFORM_VARS} -var 'is_private=${env.HOSTED_ZONE_TYPE}' -auto-approve"
+                withCredentials(awsCredentials) {
+                    sh 'terraform apply -auto-approve terraform.plan'
+                }
             }
         }
-
-        stage('Terraform Destroy') {
-            steps {
-                input(id: 'destroy', message: 'Destroy the resources?', ok: 'Destroy')
-                sh "terraform destroy -var-file=environment/${env.ENV_FOLDER}/${env.TERRAFORM_VARS} -var 'is_private=${env.HOSTED_ZONE_TYPE}' -auto-approve"
-            }
-        }
+        // stage('Terraform Destroy') {
+        //     steps {
+        //         withCredentials(awsCredentials) {
+        //             sh 'terraform destroy -auto-approve'
+        //         }
+        //     }
+        // }
     }
 }
